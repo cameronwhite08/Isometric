@@ -2,18 +2,28 @@ package io.fabianterhorst.isometric;
 
 import java.util.Objects;
 
+import stormpot.Poolable;
+import stormpot.Slot;
+
 /**
  * Created by fabianterhorst on 31.03.17.
  */
 
-public class Point {
+public class Point implements Poolable {
 
     public static final Point ORIGIN = new Point(0, 0, 0);
 
     protected double x, y, z;
 
+    private Slot slot = null;
+
     Point() {
 
+    }
+
+    //point is not required to be pooled
+    Point(Slot slot) {
+        this.slot = slot;
     }
 
     public Point(double x, double y) {
@@ -37,6 +47,18 @@ public class Point {
 
     public double getZ() {
         return z;
+    }
+
+    public void setX(double x) {
+        this.x = x;
+    }
+
+    public void setY(double y) {
+        this.y = y;
+    }
+
+    public void setZ(double z) {
+        this.z = z;
     }
 
     /**
@@ -160,6 +182,12 @@ public class Point {
      */
     public static double distancetoSegment(Point p, Point v, Point w) {
         return Math.sqrt(distanceToSegmentSquared(p, v, w));
+    }
+
+    @Override
+    public void release() {
+        if (this.slot != null)
+            this.slot.release(this);
     }
 
     @Override

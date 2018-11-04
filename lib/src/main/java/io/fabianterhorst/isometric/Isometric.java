@@ -3,10 +3,17 @@ package io.fabianterhorst.isometric;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import androidx.annotation.Nullable;
+import stormpot.BlazePool;
+import stormpot.Pool;
+import stormpot.Poolable;
+import stormpot.Slot;
+import stormpot.Config;
+import stormpot.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by fabianterhorst on 31.03.17.
@@ -33,6 +40,11 @@ public class Isometric {
 
     private boolean itemsChanged;
 
+    Point observer;
+
+    private Pool<Point> pointsPool;
+    private Pool<Item> itemsPool;
+
     public Isometric() {
         this.angle = Math.PI / 6;
         this.scale = 70;
@@ -52,6 +64,23 @@ public class Isometric {
         this.currentHeight = -1;
         this.itemsChanged = true;
 
+        PointAllocator pAllocator;
+        pAllocator = new PointAllocator();
+        Config<Point> pConfig = new Config<Point>().setAllocator(pAllocator);
+        this.pointsPool = new BlazePool<Point>(pConfig);
+
+        ItemAllocator iAllocator;
+        iAllocator = new ItemAllocator();
+        Config<Item> iConfig = new Config<Item>().setAllocator(iAllocator);
+        this.itemsPool = new BlazePool<Item>(iConfig);
+//        int si = ((BlazePool<Item>) this.itemsPool).getTargetSize();
+        ((BlazePool<Item>) this.itemsPool).setTargetSize(100000);
+
+        observer = this.getPointFromPool();
+        observer.setX(-10);
+        observer.setY(-10);
+        observer.setZ(20);
+
     }
 
     /**
@@ -60,8 +89,10 @@ public class Isometric {
      * Z affects the y coordinate of the drawn point
      */
     public Point translatePoint(Point point) {
-        return new Point(this.originX + point.x * this.transformation[0][0] + point.y * this.transformation[1][0],
-                this.originY - point.x * this.transformation[0][1] - point.y * this.transformation[1][1] - (point.z * this.scale));
+        Point p = this.getPointFromPool();
+        p.setX(this.originX + point.x * this.transformation[0][0] + point.y * this.transformation[1][0]);
+        p.setY(this.originY - point.x * this.transformation[0][1] - point.y * this.transformation[1][1] - (point.z * this.scale));
+        return p;
     }
 
     public void add(Path path, Color color) {
@@ -100,7 +131,9 @@ public class Isometric {
 
     private void addPath(Path path, Color color, Shape originalShape) {
         this.itemsChanged = true;
-        this.items.add(new Item(path, transformColor(path, color), originalShape));
+        Item i = this.getItemFromPool();
+        i.Initialize(path, transformColor(path, color), originalShape);
+        this.items.add(i);
     }
 
     /*private Color transformColor(Path path, Color color) {
@@ -221,7 +254,6 @@ public class Isometric {
 
     private List<Item> sortPaths() {
         ArrayList<Item> sortedItems = new ArrayList<>();
-        Point observer = new Point(-10, -10, 20);
         int length = items.size();
         List<List<Integer>> drawBefore = new ArrayList<>(length);
         for (int i = 0; i < length; i++) {
@@ -260,8 +292,9 @@ public class Isometric {
                         }
                     }
                     if (canDraw == 1) {
-                        Item item = new Item(currItem);
-                        sortedItems.add(item);
+                        Item it = this.getItemFromPool();
+                        it.updateFromItem(currItem);
+                        sortedItems.add(it);
                         currItem.drawn = 1;
                         items.set(i, currItem);
                         drawThisTurn = 1;
@@ -273,7 +306,9 @@ public class Isometric {
         for (int i = 0; i < length; i++) {
             currItem = items.get(i);
             if (currItem.drawn == 0) {
-                sortedItems.add(new Item(currItem));
+                Item it = this.getItemFromPool();
+                it.updateFromItem(currItem);
+                sortedItems.add(it);
             }
         }
         return sortedItems;
@@ -288,6 +323,36 @@ public class Isometric {
             this.ctx.restore();*/
             canvas.drawPath(item.drawPath, item.paint);
         }
+    }
+
+    private Point getPointFromPool(){
+        Timeout to = new Timeout(1, TimeUnit.SECONDS);
+        Point p = null;
+        try {
+            p = this.pointsPool.claim(to);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        //in-case no item was obtained from pool, create new point
+        if (p == null){
+            p = new Point();
+        }
+        return p;
+    }
+
+    private Item getItemFromPool(){
+        Timeout to = new Timeout(1, TimeUnit.SECONDS);
+        Item i = null;
+        try {
+            i = this.itemsPool.claim(to);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        //in-case no item was obtained from pool, create new item
+        if (i == null){
+            i = new Item();
+        }
+        return i;
     }
 
     //Todo: use android.grphics region object to check if point is inside region
@@ -313,28 +378,36 @@ public class Isometric {
                     right = null;
             for (Point point : item.transformedPoints) {
                 if (top == null) {
-                    top = new Point(point.x, point.y);
+                    top = this.getPointFromPool();
+                    top.setX(point.x);
+                    top.setY(point.y);
                 } else if (point.y > top.y) {
                     top.y = point.y;
                     top.x = point.x;
                 }
 
                 if (bottom == null) {
-                    bottom = new Point(point.x, point.y);
+                    bottom = this.getPointFromPool();
+                    bottom.setX(point.x);
+                    bottom.setY(point.y);
                 } else if (point.y < bottom.y) {
                     bottom.y = point.y;
                     bottom.x = point.x;
                 }
 
                 if (left == null) {
-                    left = new Point(point.x, point.y);
+                    left = this.getPointFromPool();
+                    left.setX(point.x);
+                    left.setY(point.y);
                 } else if (point.x < left.x) {
                     left.x = point.x;
                     left.y = point.y;
                 }
 
                 if (right == null) {
-                    right = new Point(point.x, point.y);
+                    right = this.getPointFromPool();
+                    right.setX(point.x);
+                    right.setY(point.y);
                 } else if (point.x > right.x) {
                     right.x = point.x;
                     right.y = point.y;
@@ -381,7 +454,7 @@ public class Isometric {
         return null;
     }
 
-    public static class Item {
+    public static class Item implements Poolable {
         Path path;
         Color baseColor;
         Paint paint;
@@ -389,18 +462,17 @@ public class Isometric {
         int drawn;
         Point[] transformedPoints;
         android.graphics.Path drawPath;
+        Slot slot;
 
-        Item(Item item) {
-            this.transformedPoints = item.transformedPoints;
-            this.drawPath = item.drawPath;
-            this.drawn = item.drawn;
-            this.paint = item.paint;
-            this.path = item.path;
-            this.baseColor = item.baseColor;
-            this.originalShape = item.originalShape;
+        Item(){
+
         }
 
-        Item(Path path, Color baseColor, Shape originalShape) {
+        Item(Slot slot){
+            this.slot = slot;
+        }
+
+        public void Initialize(Path path, Color baseColor, Shape originalShape) {
             this.drawPath = new android.graphics.Path();
             this.drawn = 0;
             this.paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -412,8 +484,27 @@ public class Isometric {
             this.paint.setColor(android.graphics.Color.argb((int) baseColor.a, (int) baseColor.r, (int) baseColor.g, (int) baseColor.b));
         }
 
+        public void updateFromItem(Item item) {
+            this.transformedPoints = item.transformedPoints;
+            this.drawPath = item.drawPath;
+            this.drawn = item.drawn;
+            this.paint = item.paint;
+            this.path = item.path;
+            this.baseColor = item.baseColor;
+            this.originalShape = item.originalShape;
+        }
+
+        @Override
+        public void release() {
+            this.slot.release(this);
+        }
+
         public Path getPath() {
             return path;
+        }
+
+        public Point[] getTransformedPoints() {
+            return transformedPoints;
         }
 
         public Shape getOriginalShape() {
