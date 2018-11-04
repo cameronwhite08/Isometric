@@ -54,6 +54,13 @@ public class Isometric {
 
     }
 
+    @Override
+    protected void finalize() throws Throwable {
+        super.finalize();
+        this.items = null;
+        this.transformation = null;
+    }
+
     /**
      * X rides along the angle extended from the origin
      * Y rides perpendicular to this angle (in isometric view: PI - angle)
@@ -410,6 +417,17 @@ public class Isometric {
             this.baseColor = baseColor;
             this.originalShape = originalShape;
             this.paint.setColor(android.graphics.Color.argb((int) baseColor.a, (int) baseColor.r, (int) baseColor.g, (int) baseColor.b));
+        }
+
+        @Override
+        protected void finalize() throws Throwable {
+            super.finalize();
+            this.transformedPoints = null;
+            this.drawPath = null;
+            this.paint = null;
+            this.path = null;
+            this.baseColor = null;
+            this.originalShape = null;
         }
 
         public Path getPath() {

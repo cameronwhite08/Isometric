@@ -17,6 +17,12 @@ public class Path {
         this.points = points;
     }
 
+    @Override
+    protected void finalize() throws Throwable {
+        super.finalize();
+        this.points = null;
+    }
+
     public void push(Point point) {
         if (points == null) {
             points = new Point[0];

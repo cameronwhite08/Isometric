@@ -104,7 +104,8 @@ public class IsometricView extends View {
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        isometric.measure(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec), sort, cull, boundsCheck);
+//        isometric.measure(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec), sort, cull, boundsCheck);
+        remeasureItems();
     }
 
     @Override
@@ -116,6 +117,18 @@ public class IsometricView extends View {
     @Override
     public boolean performClick() {
         return super.performClick();
+    }
+
+    public void remeasureItems(){
+        post(new Runnable() {
+            @Override
+            public void run() {
+                int w= getMeasuredWidth();
+                int h = getMeasuredHeight();
+                isometric.measure(w, h, sort, cull, boundsCheck);
+                invalidate();
+            }
+        });
     }
 
     @Override

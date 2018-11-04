@@ -17,6 +17,12 @@ public class Shape {
         this.paths = paths;
     }
 
+    @Override
+    protected void finalize() throws Throwable {
+        super.finalize();
+        this.paths = null;
+    }
+
     public void push(Path path) {
         if (paths == null) {
             paths = new Path[0];
