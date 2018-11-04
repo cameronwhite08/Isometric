@@ -120,10 +120,12 @@ public class IsometricView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+
         if (listener != null) {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 return true;
             } else if (event.getAction() == MotionEvent.ACTION_UP) {
+                long startTime = System.nanoTime();
                 Isometric.Item item = isometric.findItemForPosition(
                         new Point(event.getX(), event.getY()),
                         this.reverseSortForLookup,
@@ -135,8 +137,14 @@ public class IsometricView extends View {
                     listener.onClick(item);
                 }
                 performClick();
+
+                long stopTime = System.nanoTime();
+
+                long elapsedTime = stopTime - startTime;
+                System.out.println("onTouchEvent elapsed time (ns): " + elapsedTime);
             }
         }
+
         return super.onTouchEvent(event);
     }
 }
